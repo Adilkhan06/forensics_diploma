@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Граф связей</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js "></script>
+</head>
+<body>
+<style>
+body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background-color: #f7f9fb;
+            color: #333;
+        }
+    header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 30px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        nav {
+            background-color: #34495e;
+            padding: 10px 0;
+            text-align: center;
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+            margin: 0 15px;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        nav a:hover {
+            text-decoration: underline;
+        }
+</style>
+<header>
+    <h1>🔍 Forensic Digital Analyzer</h1>
+    <p><em>Автоматизированная система поиска цифровых следов между устройствами</em></p>
+    <nav>
+    <a href="/">Главная</a>
+    <a href="/upload/">Загрузить дампы</a>
+</nav>
+</header>
+
+<div class="container">
+    <h1>Граф цифровых следов</h1>
+    <div>
+        {{ graph|safe }}
+    </div>
+</div>
+</body>
+</html>

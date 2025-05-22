@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Отчет о найденных связях</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        h1, h2 { color: #333; }
+        .match { border-bottom: 1px solid #ccc; padding: 10px 0; }
+        .graph { width: 100%; height: 600px; }
+    </style>
+</head>
+<body>
+
+    <h1>Отчет о цифровых следах</h1>
+    <p><strong>Дата:</strong> {{ date }}</p>
+
+    <h2>Найденные связи</h2>
+    {% if matches %}
+        {% for match in matches %}
+            <div class="match">
+                <strong>
+    {{ match.source_file.relative_path }} ({{ match.source_file.device.name }}) ↔
+    {{ match.target_file.relative_path }} ({{ match.target_file.device.name }})
+</strong><br>
+                Тип: {{ match.match_type }}<br>
+                Сходство: {{ match.similarity_score|floatformat:2 }}<br>
+                {{ match.description }}
+            </div>
+        {% endfor %}
+    {% else %}
+        <p>Совпадений не найдено.</p>
+    {% endif %}
+
+<h2> ИИ-анализ связей</h2>
+<div class="ai-report">
+    {{ ai_report|linebreaks }}
+</div>
+</body>
+</html>

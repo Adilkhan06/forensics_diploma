@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<style>
+body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background-color: #f7f9fb;
+            color: #333;
+        }
+
+    .input-group {
+        margin-bottom: 25px;
+    }
+
+    label {
+        display: block;
+        font-weight: bold;
+        margin-bottom: 8px;
+        color: #333;
+    }
+
+    input[type="file"] {
+        border: 1px solid #ccc;
+        padding: 8px;
+        width: 100%;
+        background-color: #fff;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        font-size: 14px;
+    }
+
+    input[type="file"]:focus {
+        outline: none;
+        border-color: #3498db;
+        box-shadow: 0 0 5px rgba(52, 152, 219, 0.5);
+    }
+
+    .btn {
+        background-color: #27ae60;
+        color: white;
+        padding: 12px 20px;
+        font-size: 16px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    .btn:hover {
+        background-color: #219150;
+    }
+    .analysis-result {
+    background-color: #e8f5e9;
+    border-left: 6px solid #4caf50;
+    padding: 20px;
+    margin-top: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+}
+
+.analysis-result h3 {
+    color: #2e7d32;
+    margin-bottom: 10px;
+}
+
+.analysis-result p {
+    margin-bottom: 20px;
+    color: #555;
+}
+
+.btn {
+    display: inline-block;
+    padding: 12px 20px;
+    margin: 5px;
+    font-size: 16px;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    border: none;
+    cursor: pointer;
+    text-align: center;
+}
+
+.report-btn {
+    background-color: #2196f3;
+    color: white;
+}
+
+.report-btn:hover {
+    background-color: #1976d2;
+}
+
+.graph-btn {
+    background-color: #ff9800;
+    color: white;
+}
+
+.graph-btn:hover {
+    background-color: #f57c00;
+}
+header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 30px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        nav {
+            background-color: #34495e;
+            padding: 10px 0;
+            text-align: center;
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+            margin: 0 15px;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        nav a:hover {
+            text-decoration: underline;
+        }
+</style>
+<body>
+
+<header>
+    <h1>🔍 Forensic Digital Analyzer</h1>
+    <p><em>Автоматизированная система поиска цифровых следов между устройствами</em></p>
+        <nav>
+    <a href="/">Главная</a>
+    <a href="/upload/">Загрузить дампы</a>
+</nav>
+</header>
+
+<div class="container">
+<h2>📥 Загрузите дампы обоих устройств</h2>
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <div class="input-group">
+        <label for="device1">Дамп устройства 1:</label>
+        <input type="file" name="device1" id="device1" required>
+    </div>
+
+    <div class="input-group">
+        <label for="device2">Дамп устройства 2:</label>
+        <input type="file" name="device2" id="device2" required>
+    </div>
+
+    <button type="submit" class="btn">📤 Загрузить и проанализировать</button>
+</form>
+
+{% if analysis_done %}
+    <div class="analysis-result">
+        <h3>✅ Анализ завершён!</h3>
+        <p>Можно скачать отчёт или посмотреть граф связей</p>
+        <a href="/report/" class="btn report-btn">📄 Скачать отчет</a>
+        <a href="/graph/" class="btn graph-btn">🌐 Посмотреть граф</a>
+    </div>
+{% endif %}
+    </div>
+</body>
+</html>
