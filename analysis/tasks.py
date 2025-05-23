@@ -3,40 +3,29 @@ def run_analysis():
     from sklearn.metrics.pairwise import cosine_similarity
     from analysis.models import AnalysisSession, Match
     from ingest.models import File
-    from .utils.matcher import find_image_matches
-
 
     print("Очистка старых совпадений...")
-    AnalysisSession.objects.all().delete()
-
+    Match.objects.all().delete()
     session = AnalysisSession.objects.create()
+
     matches = []
 
+    # Получаем файлы по устройствам
+    device1_files = File.objects.filter(device__name='device1').exclude(extracted_text='')
+    device2_files = File.objects.filter(device__name='device2').exclude(extracted_text='')
 
-    text_files = File.objects.exclude(extracted_text__isnull=True).exclude(extracted_text='')
+    print(f"Количество текстовых файлов: {device1_files.count()} + {device2_files.count()}")
 
-    for match_data in find_image_matches():
-        Match.objects.create(
-            session=session,
-            source_file=match_data["source"],
-            target_file=match_data["target"],
-            similarity_score=match_data["score"],
-            match_type=match_data["type"],
-            description=f"Сходство изображений: {match_data['score']:.2f}"
-        )
-
-    for file_a in text_files:
-        for file_b in text_files:
-            if file_a.id >= file_b.id:
+    for file_a in device1_files:
+        for file_b in device2_files:
+            if not file_a.embedding or not file_b.embedding:
                 continue
 
             try:
+                emb_a = np.frombuffer(file_a.embedding, dtype=np.float32).reshape(1, -1)
+                emb_b = np.frombuffer(file_b.embedding, dtype=np.float32).reshape(1, -1)
 
-                emb_a = np.frombuffer(file_a.embedding, dtype=np.float32)
-                emb_b = np.frombuffer(file_b.embedding, dtype=np.float32)
-
-
-                score = cosine_similarity(emb_a.reshape(1, -1), emb_b.reshape(1, -1))[0][0]
+                score = cosine_similarity(emb_a, emb_b)[0][0]
 
                 if score > 0.7:
                     match = Match.objects.create(
@@ -52,30 +41,25 @@ def run_analysis():
                 print(f"[ERROR] Не удалось сравнить файлы: {file_a} ↔ {file_b}: {e}")
                 continue
 
-    # === Аудио сравнение (если реализовано) ===
-    audio_files = File.objects.filter(file_type='audio').exclude(extracted_text='')
-    if audio_files.exists():
-        from .utils.matcher import find_audio_matches
-        for match_data in find_audio_matches():
-            print(f"[DEBUG] Совпадение: {match_data['source']} ↔ {match_data['target']}")
-            if not match_data["source"] or not match_data["target"]:
-                print("[ERROR] source или target равен None")
-                continue
+    # === Изображения ===
+    device1_images = File.objects.filter(device__name='device1', file_type='image')
+    device2_images = File.objects.filter(device__name='device2', file_type='image')
 
-            match = Match.objects.create(**{
-                'session': session,
-                'source_file': match_data["source"],
-                'target_file': match_data["target"],
-                'similarity_score': match_data["score"],
-                'match_type': match_data["type"],
-                'description': f"Аудио совпадение: {match_data['score']:.2f}"
-            })
-            matches.append(match)
+    from .utils.matcher import find_image_matches
 
-    text_files = File.objects.exclude(extracted_text__isnull=True).exclude(extracted_text='')
+    for match_data in find_image_matches(device1=device1_images, device2=device2_images):
+        Match.objects.create(session=session, **match_data)
+        matches.append(match_data)
 
-    print(f"Количество текстовых файлов для анализа: {text_files.count()}")
-    for f in text_files:
-        print(f"{f} → длина текста: {len(f.extracted_text) if f.extracted_text else 0}")
-    print(f"Найдено {len(matches)} совпадений.")
+    # === Аудио ===
+    device1_audio = File.objects.filter(device__name='device1', file_type='audio')
+    device2_audio = File.objects.filter(device__name='device2', file_type='audio')
+
+    from .utils.matcher import find_audio_matches
+
+    for match_data in find_audio_matches(device1=device1_audio, device2=device2_audio):
+        Match.objects.create(session=session, **match_data)
+        matches.append(match_data)
+
+    print(f"Найдено {len(matches)} междамповых совпадений.")
     return matches

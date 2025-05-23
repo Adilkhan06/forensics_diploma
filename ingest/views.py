@@ -1,13 +1,14 @@
 import os
 import tarfile
 import zipfile
-
 from django.shortcuts import render
 
 from analysis.models import Match, AnalysisSession
-from analysis.tasks import run_analysis
 from disk_analysis.utils.dump_handler import extract_files_from_dump
 from .models import Device, File
+from django.http import JsonResponse
+from analysis.tasks import run_analysis
+
 
 from .utils.file_processor import (
     get_file_type,
@@ -18,6 +19,8 @@ from .utils.file_processor import (
     get_text_embedding,
     extract_embedding_from_image
 )
+from .utils.metadata_extractor import extract_metadata
+
 
 def upload_success_view(request):
     return render(request, 'ingest/upload_success.html')
@@ -28,7 +31,7 @@ def upload_dumps_view(request):
         device2 = request.FILES.get('device2')
 
         if not device1 or not device2:
-            return render(request, 'ingest/upload.html', {'error': 'Выберите оба дампа'})
+            return render(request, 'core/home.html', {'error': 'Выберите оба файла'})
 
         print("Очистка старых данных...")
         File.objects.all().delete()
@@ -71,7 +74,7 @@ def handle_uploaded_file(f):
         for chunk in f.chunks():
             destination.write(chunk)
 
-    # Распаковываем только если это ZIP
+    # Распаковка архива (если это .zip)
     if file_path.lower().endswith('.zip'):
         extract_dir = file_path.replace('.zip', '')
         with zipfile.ZipFile(file_path, 'r') as zip_ref:
@@ -83,7 +86,6 @@ def handle_uploaded_file(f):
             tar_ref.extractall(extract_dir)
         return extract_dir
     else:
-        # Если это RAW/E01 — просто возвращаем путь
         return file_path
 
 def extract_archive(path, extract_to):
@@ -103,7 +105,6 @@ def process_dump_files(device_id):
     for root, dirs, files in os.walk(dump_path):
         for filename in files:
             file_path = os.path.join(root, filename)
-
             rel_path = os.path.relpath(file_path, dump_path)
 
             db_file, created = File.objects.get_or_create(
@@ -121,14 +122,11 @@ def process_dump_files(device_id):
                 db_file.relative_path = rel_path
                 db_file.save()
 
-            try:
-                size = os.path.getsize(file_path)
-                db_file.size = size
-            except Exception:
-                pass
+            # Извлекаем метаданные
+            meta = extract_metadata(file_path)
+            db_file.metadata = meta
 
-            db_file.file_type = get_file_type(file_path)
-
+            # Сохраняем текст/эмбеддинги
             extracted_text = None
             embedding = None
 
@@ -136,8 +134,7 @@ def process_dump_files(device_id):
                 extracted_text = extract_text_from_document(file_path)
             elif db_file.file_type == 'image':
                 extracted_text = extract_text_from_image(file_path)
-                db_file.extracted_text = extracted_text
-                db_file.embedding = extract_embedding_from_image(file_path)
+                embedding = extract_embedding_from_image(file_path)
             elif db_file.file_type == 'audio':
                 extracted_text = extract_audio_text(file_path)
             elif db_file.file_type == 'video':
@@ -151,4 +148,36 @@ def process_dump_files(device_id):
 
             db_file.save()
 
-        print(f"[INFO] Устройство '{device.name}' обработано. Найдено файлов: {len(files)}")
+    print(f"[INFO] Устройство '{device.name}' обработано")
+
+def device_files_api(request, device_name):
+    files = File.objects.filter(device__name=device_name)
+    data = [
+        {
+            "id": f.id,
+            "file_path": f.file_path,
+            "relative_path": f.relative_path,
+            "file_type": f.file_type,
+            "size": f.size,
+            "extracted_text": f.extracted_text,
+            "metadata": f.metadata
+        }
+        for f in files
+    ]
+    return JsonResponse(data, safe=False)
+
+
+def run_analysis_api(request):
+    # Запускаем анализ
+    run_analysis()  # Твоя существующая функция из analysis/tasks.py
+
+    # Возвращаем результаты в JSON
+    matches = Match.objects.all().values(
+        'source_file__relative_path',
+        'target_file__relative_path',
+        'similarity_score',
+        'match_type',
+        'description'
+    )
+
+    return JsonResponse(list(matches), safe=False)

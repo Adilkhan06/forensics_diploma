@@ -18,9 +18,9 @@ from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path
-
+from ingest.views import run_analysis_api
 from core.views import home_view
-from ingest.views import upload_dumps_view, upload_success_view
+from ingest.views import upload_dumps_view, upload_success_view, device_files_api
 from reporting import views
 from reporting.views import generate_report
 from visualization.views import visualize_graph
@@ -33,6 +33,8 @@ urlpatterns = [
     path('graph/', visualize_graph, name='visualize_graph'),
     path('upload/success/', upload_success_view, name='upload_success'),
     path('ai-report/', views.generate_ai_report, name='generate_ai_report'),
+    path('api/device/files/<str:device_name>/', device_files_api, name='device_files_api'),
+    path('api/run-analysis/', run_analysis_api, name='run_analysis_api'),
 ]
 
 
