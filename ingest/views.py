@@ -1,10 +1,12 @@
 import os
+import tarfile
 import zipfile
 
 from django.shortcuts import render
 
 from analysis.models import Match, AnalysisSession
 from analysis.tasks import run_analysis
+from disk_analysis.utils.dump_handler import extract_files_from_dump
 from .models import Device, File
 
 from .utils.file_processor import (
@@ -31,14 +33,21 @@ def upload_dumps_view(request):
         print("Очистка старых данных...")
         File.objects.all().delete()
         Device.objects.all().delete()
+
         # Match.objects.all().delete()
         # AnalysisSession.objects.all().delete()
 
+        # Обработка первого дампа
         dump1_path = handle_uploaded_file(device1)
         dump2_path = handle_uploaded_file(device2)
 
-        device1_obj = Device.objects.create(name='device1', dump_path=dump1_path)
-        device2_obj = Device.objects.create(name='device2', dump_path=dump2_path)
+        # Извлечение файлов из дампов (поддержка .zip и .E01/.raw)
+        device1_extracted = extract_files_from_dump(dump1_path, name='device1')
+        device2_extracted = extract_files_from_dump(dump2_path, name='device2')
+
+        # Создаем устройства и связываем с распакованными файлами
+        device1_obj = Device.objects.create(name='device1', dump_path=device1_extracted)
+        device2_obj = Device.objects.create(name='device2', dump_path=device2_extracted)
 
         process_dump_files(device1_obj.id)
         process_dump_files(device2_obj.id)
@@ -46,13 +55,14 @@ def upload_dumps_view(request):
         run_analysis()
 
         return render(request, 'ingest/upload.html', {
-            'analysis_done': True
+            'analysis_done': True,
+            'message': '✅ Дампы загружены, файлы извлечены'
         })
 
     return render(request, 'ingest/upload.html')
 
 def handle_uploaded_file(f):
-    upload_dir = 'media/dumps/'
+    upload_dir = 'media/uploads/'
     os.makedirs(upload_dir, exist_ok=True)
 
     file_path = os.path.join(upload_dir, f.name)
@@ -61,12 +71,20 @@ def handle_uploaded_file(f):
         for chunk in f.chunks():
             destination.write(chunk)
 
-    extract_dir = file_path.replace('.zip', '')
-    with zipfile.ZipFile(file_path, 'r') as zip_ref:
-        zip_ref.extractall(extract_dir)
-
-    return extract_dir
-
+    # Распаковываем только если это ZIP
+    if file_path.lower().endswith('.zip'):
+        extract_dir = file_path.replace('.zip', '')
+        with zipfile.ZipFile(file_path, 'r') as zip_ref:
+            zip_ref.extractall(extract_dir)
+        return extract_dir
+    elif file_path.lower().endswith(('.tar', '.tar.gz')):
+        extract_dir = file_path.replace('.tar', '').replace('.gz', '')
+        with tarfile.open(file_path, 'r:*') as tar_ref:
+            tar_ref.extractall(extract_dir)
+        return extract_dir
+    else:
+        # Если это RAW/E01 — просто возвращаем путь
+        return file_path
 
 def extract_archive(path, extract_to):
     if path.endswith('.zip'):
@@ -133,4 +151,4 @@ def process_dump_files(device_id):
 
             db_file.save()
 
-    print(f"[INFO] Устройство '{device.name}' обработано. Найдено файлов: {len(files)}")
+        print(f"[INFO] Устройство '{device.name}' обработано. Найдено файлов: {len(files)}")

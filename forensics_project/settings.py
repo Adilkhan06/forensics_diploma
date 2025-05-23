@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'reporting',
     'visualization',
     'analysis',
+    'disk_analysis',
 ]
 
 MIDDLEWARE = [
