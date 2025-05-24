@@ -25,30 +25,26 @@ from .utils.metadata_extractor import extract_metadata
 def upload_success_view(request):
     return render(request, 'ingest/upload_success.html')
 
+
 def upload_dumps_view(request):
     if request.method == 'POST':
         device1 = request.FILES.get('device1')
         device2 = request.FILES.get('device2')
 
         if not device1 or not device2:
-            return render(request, 'core/home.html', {'error': 'Выберите оба файла'})
+            return JsonResponse({"status": "error", "message": "Выберите оба дампа"}, status=400)
 
-        print("Очистка старых данных...")
+        # Очистка старых данных
         File.objects.all().delete()
         Device.objects.all().delete()
 
-        # Match.objects.all().delete()
-        # AnalysisSession.objects.all().delete()
-
-        # Обработка первого дампа
+        # Обработка файлов
         dump1_path = handle_uploaded_file(device1)
         dump2_path = handle_uploaded_file(device2)
 
-        # Извлечение файлов из дампов (поддержка .zip и .E01/.raw)
         device1_extracted = extract_files_from_dump(dump1_path, name='device1')
         device2_extracted = extract_files_from_dump(dump2_path, name='device2')
 
-        # Создаем устройства и связываем с распакованными файлами
         device1_obj = Device.objects.create(name='device1', dump_path=device1_extracted)
         device2_obj = Device.objects.create(name='device2', dump_path=device2_extracted)
 
@@ -57,13 +53,9 @@ def upload_dumps_view(request):
 
         run_analysis()
 
-        return render(request, 'ingest/upload.html', {
-            'analysis_done': True,
-            'message': '✅ Дампы загружены, файлы извлечены'
-        })
+        return JsonResponse({"status": "success", "message": "✅ Дампы загружены и проанализированы"})
 
     return render(request, 'ingest/upload.html')
-
 def handle_uploaded_file(f):
     upload_dir = 'media/uploads/'
     os.makedirs(upload_dir, exist_ok=True)
@@ -150,20 +142,20 @@ def process_dump_files(device_id):
 
     print(f"[INFO] Устройство '{device.name}' обработано")
 
+
 def device_files_api(request, device_name):
     files = File.objects.filter(device__name=device_name)
-    data = [
-        {
-            "id": f.id,
-            "file_path": f.file_path,
-            "relative_path": f.relative_path,
-            "file_type": f.file_type,
-            "size": f.size,
-            "extracted_text": f.extracted_text,
-            "metadata": f.metadata
-        }
-        for f in files
-    ]
+
+    data = [{
+        "id": f.id,
+        "file_path": f.file_path,
+        "relative_path": f.relative_path or os.path.basename(f.file_path),
+        "file_type": f.file_type,
+        "size": f.size,
+        "extracted_text": f.extracted_text or "",
+        "metadata": dict(f.metadata) if isinstance(f.metadata, dict) else {}
+    } for f in files]
+
     return JsonResponse(data, safe=False)
 
 
@@ -181,3 +173,21 @@ def run_analysis_api(request):
     )
 
     return JsonResponse(list(matches), safe=False)
+
+def get_matches_api(request):
+    match_type = request.GET.get('type', None)
+
+    if match_type:
+        matches = Match.objects.filter(match_type=match_type)
+    else:
+        matches = Match.objects.all()
+
+    data = [{
+        "source_file": str(m.source_file),
+        "target_file": str(m.target_file),
+        "similarity_score": m.similarity_score,
+        "match_type": m.match_type,
+        "description": m.description
+    } for m in matches]
+
+    return JsonResponse(data, safe=False)
